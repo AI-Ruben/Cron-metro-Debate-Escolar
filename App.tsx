@@ -255,6 +255,17 @@ const App: React.FC = () => {
     return 'text-[#4A9E9E]';
   };
 
+  const getProgressBarClass = (timer: TimerState) => {
+    if (timer.seconds <= 0) return 'bg-red-500';
+    if (timer.seconds <= timer.warningSeconds) return 'bg-yellow-500';
+    return 'bg-green-500';
+  };
+
+  const progressPercentage = useMemo(() => {
+    if (activeTimer.initialSeconds <= 0) return 0;
+    return Math.max(0, (activeTimer.seconds / activeTimer.initialSeconds) * 100);
+  }, [activeTimer.seconds, activeTimer.initialSeconds]);
+
   return (
     <div className="bg-gradient-to-br from-[#5B4A9E] to-[#4A9E9E] min-h-screen p-4 md:p-8 text-gray-800">
       <Header lang={lang} setLang={setLang} translations={translations} />
@@ -280,6 +291,18 @@ const App: React.FC = () => {
                 
                 <div className={`text-8xl md:text-9xl text-center font-bold my-8 transition-colors duration-300 ${getTimerDisplayClass(activeTimer)}`} style={{fontVariantNumeric: 'tabular-nums'}}>
                     {formatTime(activeTimer.seconds)}
+                </div>
+
+                <div className="w-full bg-gray-200 rounded-full h-6 mb-8 overflow-hidden shadow-inner">
+                    <div
+                        className={`h-6 rounded-full transition-all duration-300 ease-linear ${getProgressBarClass(activeTimer)}`}
+                        style={{ width: `${progressPercentage}%` }}
+                        role="progressbar"
+                        aria-valuenow={activeTimer.seconds}
+                        aria-valuemin={0}
+                        aria-valuemax={activeTimer.initialSeconds}
+                        aria-label="Time remaining"
+                    ></div>
                 </div>
 
                 <div className="flex flex-col md:flex-row justify-center items-center gap-4 md:gap-8 mb-8 text-[#5B4A9E]">
