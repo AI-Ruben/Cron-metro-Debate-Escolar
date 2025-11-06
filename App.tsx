@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Language, Team, TimerState, Timers, TimerLog, TimerLogs } from './types';
 import { TRANSLATIONS, TIMER_CONFIGS } from './constants';
@@ -92,47 +91,135 @@ const ConfigPanel: React.FC<{
   );
 };
 
+const SummaryScreen: React.FC<{
+  timerLogs: TimerLogs;
+  teamNames: { A: string; B: string };
+  translations: typeof TRANSLATIONS[Language];
+  onExport: () => void;
+  onReset: () => void;
+}> = ({ timerLogs, teamNames, translations, onExport, onReset }) => {
+  const renderTeamResults = (team: Team) => {
+    const teamConfigs = TIMER_CONFIGS.filter(c => c.team === team);
+    const totalTimeUsed = teamConfigs.reduce((sum, config) => sum + timerLogs[config.id].timeUsed, 0);
+    const totalOvertime = teamConfigs.reduce((sum, config) => sum + timerLogs[config.id].overtime, 0);
+
+    return (
+      <div className="flex-1 bg-gray-50 p-4 md:p-6 rounded-xl shadow-md min-w-[280px]">
+        <h3 className="text-2xl font-bold text-[#5B4A9E] mb-4 text-center">{teamNames[team]}</h3>
+        <div className="space-y-3">
+          {teamConfigs.map(config => {
+            const log = timerLogs[config.id];
+            return (
+              <div key={config.id} className="p-3 bg-white rounded-lg shadow-sm">
+                <p className="font-bold text-gray-700">{translations[config.id as keyof typeof translations]}</p>
+                <div className="flex justify-between text-sm mt-1">
+                  <span className="text-gray-500">{translations.timeUsed}:</span>
+                  <span className="font-mono font-semibold">{formatTime(log.timeUsed)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">{translations.overtime}:</span>
+                  <span className={`font-mono font-semibold ${log.overtime > 0 ? 'text-red-500' : ''}`}>{formatTime(log.overtime)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-6 pt-4 border-t-2 border-dashed border-[#5B4A9E]">
+            <div className="flex justify-between font-bold text-lg">
+                <span>{translations.totalTime}:</span>
+                <span className="font-mono">{formatTime(totalTimeUsed)}</span>
+            </div>
+            <div className="flex justify-between font-bold text-lg">
+                <span>{translations.totalOvertime}:</span>
+                <span className={`font-mono ${totalOvertime > 0 ? 'text-red-500' : ''}`}>{formatTime(totalOvertime)}</span>
+            </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <main className="max-w-4xl mx-auto">
+      <div className="bg-white p-6 md:p-8 rounded-2xl shadow-2xl">
+        <h2 className="text-3xl md:text-4xl text-center font-bold text-[#5B4A9E] mb-8">{translations.debateResults}</h2>
+        <div className="flex flex-col md:flex-row gap-6 md:gap-8 mb-8">
+          {renderTeamResults('A')}
+          {renderTeamResults('B')}
+        </div>
+        <div className="flex flex-wrap justify-center gap-4">
+          <button onClick={onExport} className="px-8 py-4 bg-[#6080A3] hover:bg-[#4d6782] text-white font-bold text-xl rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+            {translations.export}
+          </button>
+          <button onClick={onReset} className="px-8 py-4 bg-gradient-to-r from-[#5B4A9E] to-[#4A9E9E] text-white font-bold text-xl rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+            {translations.newDebate}
+          </button>
+        </div>
+      </div>
+    </main>
+  );
+};
+
+
+const initialTimersState = TIMER_CONFIGS.reduce((acc, config) => {
+  acc[config.id] = {
+    seconds: config.defaultMinutes * 60,
+    initialSeconds: config.defaultMinutes * 60,
+    warningSeconds: config.defaultWarning,
+    isRunning: false,
+  };
+  return acc;
+}, {} as Timers);
+
+const initialTimerLogsState = TIMER_CONFIGS.reduce((acc, config) => {
+  acc[config.id] = {
+    phase: config.id,
+    team: config.team,
+    initialTime: config.defaultMinutes * 60,
+    timeUsed: 0,
+    overtime: 0,
+    completed: false
+  };
+  return acc;
+}, {} as TimerLogs);
+
+
 const App: React.FC = () => {
   const [lang, setLang] = useState<Language>('es');
   const [debateStarted, setDebateStarted] = useState(false);
+  const [debateFinished, setDebateFinished] = useState(false);
   const [teamNames, setTeamNames] = useState<{ A: string; B: string }>({ A: '', B: '' });
   const [activeTimerId, setActiveTimerId] = useState<string>(TIMER_CONFIGS[0].id);
   
-  const [timers, setTimers] = useState<Timers>(() =>
-    TIMER_CONFIGS.reduce((acc, config) => {
-      acc[config.id] = {
-        seconds: config.defaultMinutes * 60,
-        initialSeconds: config.defaultMinutes * 60,
-        warningSeconds: config.defaultWarning,
-        isRunning: false,
-      };
-      return acc;
-    }, {} as Timers)
-  );
-  
-  const [timerLogs, setTimerLogs] = useState<TimerLogs>(() => 
-    TIMER_CONFIGS.reduce((acc, config) => {
-      acc[config.id] = {
-        phase: config.id,
-        team: config.team,
-        initialTime: config.defaultMinutes * 60,
-        timeUsed: 0,
-        overtime: 0,
-        completed: false
-      };
-      return acc;
-    }, {} as TimerLogs)
-  );
+  const [timers, setTimers] = useState<Timers>(initialTimersState);
+  const [timerLogs, setTimerLogs] = useState<TimerLogs>(initialTimerLogsState);
 
   const translations = useMemo(() => TRANSLATIONS[lang], [lang]);
-  // FIX: The error "Property 'isRunning' does not exist on type 'unknown'" is likely due to incorrect type inference on `Object.values`.
-  // Using `Object.keys` provides a more robust way to iterate and check the timer states.
   const isAnyTimerRunning = useMemo(() => Object.keys(timers).some(key => timers[key].isRunning), [timers]);
 
   const handleStartDebate = useCallback((teamA: string, teamB: string) => {
     setTeamNames({ A: teamA, B: teamB });
     setDebateStarted(true);
   }, []);
+
+  const handleFinishDebate = () => {
+    setTimers(prev => {
+      const newTimers = { ...prev };
+      for (const id in newTimers) {
+        newTimers[id].isRunning = false;
+      }
+      return newTimers;
+    });
+    setDebateFinished(true);
+  };
+
+  const handleResetApp = () => {
+    setDebateStarted(false);
+    setDebateFinished(false);
+    setTeamNames({ A: '', B: '' });
+    setActiveTimerId(TIMER_CONFIGS[0].id);
+    setTimers(initialTimersState);
+    setTimerLogs(initialTimerLogsState);
+  };
 
   const updateTimerAndLog = useCallback((timerId: string, newSeconds: number) => {
     const timer = timers[timerId];
@@ -182,6 +269,12 @@ const App: React.FC = () => {
   const handleTimerControl = useCallback((id: string, action: 'start' | 'pause' | 'reset') => {
     setTimers(prev => {
       const newTimers = { ...prev };
+      Object.keys(newTimers).forEach(timerId => {
+        if (timerId !== id) {
+            newTimers[timerId].isRunning = false;
+        }
+      });
+
       if (action === 'start') {
         newTimers[id] = { ...newTimers[id], isRunning: true };
       } else if (action === 'pause') {
@@ -271,7 +364,7 @@ const App: React.FC = () => {
       <Header lang={lang} setLang={setLang} translations={translations} />
       {!debateStarted ? (
         <ConfigPanel onStart={handleStartDebate} translations={translations} />
-      ) : (
+      ) : !debateFinished ? (
         <main className="max-w-4xl mx-auto">
             <div className="flex flex-wrap justify-center gap-2 mb-4">
                 {TIMER_CONFIGS.map(config => (
@@ -308,7 +401,7 @@ const App: React.FC = () => {
                 <div className="flex flex-col md:flex-row justify-center items-center gap-4 md:gap-8 mb-8 text-[#5B4A9E]">
                     <div className="flex items-center gap-3">
                         <label className="font-bold text-lg whitespace-nowrap">{translations.initialMinutes}</label>
-                        <input type="number" value={activeTimer.initialSeconds / 60} onChange={(e) => handleTimeSettingChange(activeTimerId, 'initial', parseInt(e.target.value))} min="1" max="60" className="w-20 p-2 text-center border-2 border-[#5B4A9E] rounded-md"/>
+                        <input type="number" value={Math.round(activeTimer.initialSeconds / 60)} onChange={(e) => handleTimeSettingChange(activeTimerId, 'initial', parseInt(e.target.value))} min="1" max="60" className="w-20 p-2 text-center border-2 border-[#5B4A9E] rounded-md"/>
                     </div>
                      <div className="flex items-center gap-3">
                         <label className="font-bold text-lg whitespace-nowrap">{translations.warningSeconds}</label>
@@ -326,12 +419,23 @@ const App: React.FC = () => {
                 </div>
             </div>
 
-            <div className="flex justify-center mt-8">
-                 <button onClick={exportToCSV} className="px-8 py-4 bg-[#6080A3] hover:bg-[#4d6782] text-white font-bold text-xl rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+            <div className="flex flex-wrap justify-center gap-4 mt-8">
+                 <button onClick={exportToCSV} className="px-6 py-3 bg-[#6080A3] hover:bg-[#4d6782] text-white font-bold text-lg rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
                     {translations.export}
+                </button>
+                <button onClick={handleFinishDebate} className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold text-lg rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+                    {translations.finishDebate}
                 </button>
             </div>
         </main>
+      ) : (
+         <SummaryScreen
+            timerLogs={timerLogs}
+            teamNames={teamNames}
+            translations={translations}
+            onExport={exportToCSV}
+            onReset={handleResetApp}
+        />
       )}
     </div>
   );

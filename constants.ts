@@ -1,4 +1,3 @@
-
 import { TimerConfig } from './types';
 
 export const TRANSLATIONS = {
@@ -30,6 +29,14 @@ export const TRANSLATIONS = {
     completed: "Completado",
     yes: "Sí",
     no: "No",
+    finishDebate: "Finalizar Debate",
+    debateResults: "Resultados del Debate",
+    totalTime: "Tiempo Total Utilizado",
+    totalOvertime: "Tiempo Extra Total",
+    newDebate: "Nuevo Debate",
+    phase: "Fase",
+    timeUsed: "Tiempo Usado",
+    overtime: "Tiempo Extra",
   },
   en: {
     mainTitle: "School Debate",
@@ -59,6 +66,14 @@ export const TRANSLATIONS = {
     completed: "Completed",
     yes: "Yes",
     no: "No",
+    finishDebate: "Finish Debate",
+    debateResults: "Debate Results",
+    totalTime: "Total Time Used",
+    totalOvertime: "Total Overtime",
+    newDebate: "New Debate",
+    phase: "Phase",
+    timeUsed: "Time Used",
+    overtime: "Overtime",
   },
   eu: {
     mainTitle: "Eskola Eztabaida",
@@ -88,6 +103,14 @@ export const TRANSLATIONS = {
     completed: "Osatuta",
     yes: "Bai",
     no: "Ez",
+    finishDebate: "Eztabaida Amaitu",
+    debateResults: "Eztabaidaren Emaitzak",
+    totalTime: "Erabilitako Denbora Guztira",
+    totalOvertime: "Aparteko Denbora Guztira",
+    newDebate: "Eztabaida Berria",
+    phase: "Fasea",
+    timeUsed: "Erabilitako Denbora",
+    overtime: "Aparteko Denbora",
   }
 };
 
