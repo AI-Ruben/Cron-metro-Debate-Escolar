@@ -1,5 +1,5 @@
 {
-  "name": "School Debate Timer",
+  "name": "School Debate Timer 2",
   "description": "A multi-phase, multi-language timer designed for school debates. It allows configuration of participants, different stages of the debate, and exporting results to CSV.",
   "requestFramePermissions": [],
   "author": "Ruben Araico",

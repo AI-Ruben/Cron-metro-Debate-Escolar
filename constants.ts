@@ -37,6 +37,14 @@ export const TRANSLATIONS = {
     phase: "Fase",
     timeUsed: "Tiempo Usado",
     overtime: "Tiempo Extra",
+    // Accessibility additions
+    minute: "minuto",
+    minutes: "minutos",
+    second: "segundo",
+    seconds: "segundos",
+    and: "y",
+    timeRemaining: "Tiempo restante",
+    warningMessage: "Aviso, el tiempo se está acabando",
   },
   en: {
     mainTitle: "School Debate",
@@ -74,6 +82,14 @@ export const TRANSLATIONS = {
     phase: "Phase",
     timeUsed: "Time Used",
     overtime: "Overtime",
+    // Accessibility additions
+    minute: "minute",
+    minutes: "minutes",
+    second: "second",
+    seconds: "seconds",
+    and: "and",
+    timeRemaining: "Time remaining",
+    warningMessage: "Warning, time is running out",
   },
   eu: {
     mainTitle: "Eskola Eztabaida",
@@ -111,6 +127,14 @@ export const TRANSLATIONS = {
     phase: "Fasea",
     timeUsed: "Erabilitako Denbora",
     overtime: "Aparteko Denbora",
+    // Accessibility additions
+    minute: "minutu",
+    minutes: "minutu",
+    second: "segundo",
+    seconds: "segundo",
+    and: "eta",
+    timeRemaining: "Geratzen den denbora",
+    warningMessage: "Abisua, denbora agortzen ari da",
   }
 };
 

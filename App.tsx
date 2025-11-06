@@ -11,12 +11,34 @@ const formatTime = (totalSeconds: number): string => {
   return `${sign}${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 };
 
+const formatSpokenTime = (totalSeconds: number, translations: typeof TRANSLATIONS[Language]): string => {
+  const absSeconds = Math.abs(totalSeconds);
+  const mins = Math.floor(absSeconds / 60);
+  const secs = absSeconds % 60;
+  
+  const parts = [];
+  if (mins > 0) {
+    parts.push(`${mins} ${mins === 1 ? translations.minute : translations.minutes}`);
+  }
+  if (secs > 0 || mins === 0) {
+    parts.push(`${secs} ${secs === 1 ? translations.second : translations.seconds}`);
+  }
+
+  if (parts.length === 0) {
+    return `0 ${translations.seconds}`;
+  }
+  
+  return parts.join(` ${translations.and} `);
+};
+
+
 const Header: React.FC<{
   lang: Language;
   setLang: (lang: Language) => void;
   translations: typeof TRANSLATIONS[Language];
 }> = ({ lang, setLang, translations }) => {
   const languages: Language[] = ['es', 'en', 'eu'];
+  const focusRingClass = "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3E8484]";
 
   return (
     <header className="text-center bg-white p-5 rounded-2xl mb-8 shadow-lg max-w-4xl mx-auto">
@@ -27,8 +49,9 @@ const Header: React.FC<{
           <button
             key={l}
             onClick={() => setLang(l)}
-            className={`px-5 py-2 rounded-md font-bold text-white transition-all duration-300 transform hover:scale-105 ${
-              lang === l ? 'bg-[#4A9E9E]' : 'bg-[#5B4A9E] hover:bg-[#4A9E9E]'
+            aria-current={lang === l ? 'page' : undefined}
+            className={`px-5 py-2 rounded-md font-bold text-white transition-all duration-300 transform hover:scale-105 ${focusRingClass} ${
+              lang === l ? 'bg-[#3E8484]' : 'bg-[#5B4A9E] hover:bg-[#3E8484]'
             }`}
           >
             {l.toUpperCase()}
@@ -45,6 +68,7 @@ const ConfigPanel: React.FC<{
 }> = ({ onStart, translations }) => {
   const [teamA, setTeamA] = useState('');
   const [teamB, setTeamB] = useState('');
+  const focusRingClass = "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3E8484]";
 
   const handleStart = () => {
     if (teamA.trim() && teamB.trim()) {
@@ -59,30 +83,32 @@ const ConfigPanel: React.FC<{
       <h3 className="text-2xl font-bold text-[#5B4A9E] mb-6 text-center">{translations.configTitle}</h3>
       <div className="grid md:grid-cols-2 gap-6 mb-6">
         <div className="flex flex-col">
-          <label className="text-lg font-bold text-[#5B4A9E] mb-2">{translations.labelTeamA}</label>
+          <label htmlFor="teamA-input" className="text-lg font-bold text-[#5B4A9E] mb-2">{translations.labelTeamA}</label>
           <input
+            id="teamA-input"
             type="text"
             value={teamA}
             onChange={(e) => setTeamA(e.target.value)}
             placeholder={translations.placeholderA}
-            className="p-3 border-2 border-[#5B4A9E] rounded-md focus:ring-2 focus:ring-[#4A9E9E] focus:outline-none transition"
+            className={`p-3 border-2 border-[#5B4A9E] rounded-md focus:ring-[#4A9E9E] transition ${focusRingClass}`}
           />
         </div>
         <div className="flex flex-col">
-          <label className="text-lg font-bold text-[#5B4A9E] mb-2">{translations.labelTeamB}</label>
+          <label htmlFor="teamB-input" className="text-lg font-bold text-[#5B4A9E] mb-2">{translations.labelTeamB}</label>
           <input
+            id="teamB-input"
             type="text"
             value={teamB}
             onChange={(e) => setTeamB(e.target.value)}
             placeholder={translations.placeholderB}
-            className="p-3 border-2 border-[#5B4A9E] rounded-md focus:ring-2 focus:ring-[#4A9E9E] focus:outline-none transition"
+            className={`p-3 border-2 border-[#5B4A9E] rounded-md focus:ring-[#4A9E9E] transition ${focusRingClass}`}
           />
         </div>
       </div>
       <div className="flex justify-center">
         <button
           onClick={handleStart}
-          className="px-8 py-4 bg-gradient-to-r from-[#5B4A9E] to-[#4A9E9E] text-white font-bold text-xl rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+          className={`px-8 py-4 bg-gradient-to-r from-[#5B4A9E] to-[#3E8484] text-white font-bold text-xl rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 ${focusRingClass}`}
         >
           {translations.startDebate}
         </button>
@@ -98,25 +124,28 @@ const SummaryScreen: React.FC<{
   onExport: () => void;
   onReset: () => void;
 }> = ({ timerLogs, teamNames, translations, onExport, onReset }) => {
+  const focusRingClass = "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3E8484]";
+  
   const renderTeamResults = (team: Team) => {
     const teamConfigs = TIMER_CONFIGS.filter(c => c.team === team);
     const totalTimeUsed = teamConfigs.reduce((sum, config) => sum + timerLogs[config.id].timeUsed, 0);
     const totalOvertime = teamConfigs.reduce((sum, config) => sum + timerLogs[config.id].overtime, 0);
+    const teamId = `team-summary-${team}`;
 
     return (
-      <div className="flex-1 bg-gray-50 p-4 md:p-6 rounded-xl shadow-md min-w-[280px]">
-        <h3 className="text-2xl font-bold text-[#5B4A9E] mb-4 text-center">{teamNames[team]}</h3>
+      <section aria-labelledby={teamId} className="flex-1 bg-gray-50 p-4 md:p-6 rounded-xl shadow-md min-w-[280px]">
+        <h3 id={teamId} className="text-3xl font-bold text-[#5B4A9E] mb-4 text-center">{teamNames[team]}</h3>
         <div className="space-y-3">
           {teamConfigs.map(config => {
             const log = timerLogs[config.id];
             return (
               <div key={config.id} className="p-3 bg-white rounded-lg shadow-sm">
-                <p className="font-bold text-gray-700">{translations[config.id as keyof typeof translations]}</p>
-                <div className="flex justify-between text-sm mt-1">
+                <p className="font-bold text-lg text-gray-700">{translations[config.id as keyof typeof translations]}</p>
+                <div className="flex justify-between text-base mt-1">
                   <span className="text-gray-500">{translations.timeUsed}:</span>
                   <span className="font-mono font-semibold">{formatTime(log.timeUsed)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-base">
                   <span className="text-gray-500">{translations.overtime}:</span>
                   <span className={`font-mono font-semibold ${log.overtime > 0 ? 'text-red-500' : ''}`}>{formatTime(log.overtime)}</span>
                 </div>
@@ -125,32 +154,32 @@ const SummaryScreen: React.FC<{
           })}
         </div>
         <div className="mt-6 pt-4 border-t-2 border-dashed border-[#5B4A9E]">
-            <div className="flex justify-between font-bold text-lg">
+            <div className="flex justify-between font-bold text-xl">
                 <span>{translations.totalTime}:</span>
                 <span className="font-mono">{formatTime(totalTimeUsed)}</span>
             </div>
-            <div className="flex justify-between font-bold text-lg">
+            <div className="flex justify-between font-bold text-xl">
                 <span>{translations.totalOvertime}:</span>
                 <span className={`font-mono ${totalOvertime > 0 ? 'text-red-500' : ''}`}>{formatTime(totalOvertime)}</span>
             </div>
         </div>
-      </div>
+      </section>
     );
   };
 
   return (
     <main className="max-w-4xl mx-auto">
       <div className="bg-white p-6 md:p-8 rounded-2xl shadow-2xl">
-        <h2 className="text-3xl md:text-4xl text-center font-bold text-[#5B4A9E] mb-8">{translations.debateResults}</h2>
+        <h2 className="text-4xl md:text-5xl text-center font-bold text-[#5B4A9E] mb-8">{translations.debateResults}</h2>
         <div className="flex flex-col md:flex-row gap-6 md:gap-8 mb-8">
           {renderTeamResults('A')}
           {renderTeamResults('B')}
         </div>
         <div className="flex flex-wrap justify-center gap-4">
-          <button onClick={onExport} className="px-8 py-4 bg-[#6080A3] hover:bg-[#4d6782] text-white font-bold text-xl rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+          <button onClick={onExport} className={`px-8 py-4 bg-[#6080A3] hover:bg-[#4d6782] text-white font-bold text-xl rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 ${focusRingClass}`}>
             {translations.export}
           </button>
-          <button onClick={onReset} className="px-8 py-4 bg-gradient-to-r from-[#5B4A9E] to-[#4A9E9E] text-white font-bold text-xl rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+          <button onClick={onReset} className={`px-8 py-4 bg-gradient-to-r from-[#5B4A9E] to-[#3E8484] text-white font-bold text-xl rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 ${focusRingClass}`}>
             {translations.newDebate}
           </button>
         </div>
@@ -192,9 +221,11 @@ const App: React.FC = () => {
   
   const [timers, setTimers] = useState<Timers>(initialTimersState);
   const [timerLogs, setTimerLogs] = useState<TimerLogs>(initialTimerLogsState);
+  const [srAnnouncement, setSrAnnouncement] = useState('');
 
   const translations = useMemo(() => TRANSLATIONS[lang], [lang]);
   const isAnyTimerRunning = useMemo(() => Object.keys(timers).some(key => timers[key].isRunning), [timers]);
+  const focusRingClass = "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3E8484]";
 
   const handleStartDebate = useCallback((teamA: string, teamB: string) => {
     setTeamNames({ A: teamA, B: teamB });
@@ -245,11 +276,25 @@ const App: React.FC = () => {
       [timerId]: { ...prev[timerId], timeUsed, overtime }
     }));
 
-    if (newSeconds === 0) {
-      alert(`${translations.timeFinished} ${teamNames[TIMER_CONFIGS.find(c => c.id === timerId)!.team]}!`);
+    if (newSeconds > 0 && newSeconds === timer.warningSeconds) {
+      setSrAnnouncement(`${formatSpokenTime(newSeconds, translations)}. ${translations.warningMessage}`);
+    } else if (newSeconds === 0) {
+      const teamName = teamNames[TIMER_CONFIGS.find(c => c.id === timerId)!.team];
+      setSrAnnouncement(`${translations.timeFinished} ${teamName}.`);
       setTimerLogs(prev => ({...prev, [timerId]: {...prev[timerId], completed: true }}));
+    } else if (newSeconds < 0 && newSeconds % 30 === 0 && newSeconds !== 0) {
+      setSrAnnouncement(`${translations.overtime}: ${formatSpokenTime(Math.abs(newSeconds), translations)}`);
     }
-  }, [timers, teamNames, translations.timeFinished]);
+  }, [timers, teamNames, translations]);
+
+  useEffect(() => {
+    if (!debateStarted) return;
+    const config = TIMER_CONFIGS.find(c => c.id === activeTimerId)!;
+    const phaseName = translations[config.id as keyof typeof translations];
+    const teamName = teamNames[config.team];
+    setSrAnnouncement(`${phaseName}, ${teamName}.`);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTimerId, debateStarted, teamNames, translations]);
 
   useEffect(() => {
     if (!isAnyTimerRunning) return;
@@ -263,8 +308,7 @@ const App: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAnyTimerRunning, updateTimerAndLog]); // updateTimerAndLog is memoized
+  }, [isAnyTimerRunning, timers, updateTimerAndLog]);
   
   const handleTimerControl = useCallback((id: string, action: 'start' | 'pause' | 'reset') => {
     setTimers(prev => {
@@ -362,6 +406,9 @@ const App: React.FC = () => {
   return (
     <div className="bg-gradient-to-br from-[#5B4A9E] to-[#4A9E9E] min-h-screen p-4 md:p-8 text-gray-800">
       <Header lang={lang} setLang={setLang} translations={translations} />
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {srAnnouncement}
+      </div>
       {!debateStarted ? (
         <ConfigPanel onStart={handleStartDebate} translations={translations} />
       ) : !debateFinished ? (
@@ -371,7 +418,8 @@ const App: React.FC = () => {
                     <button 
                         key={config.id} 
                         onClick={() => setActiveTimerId(config.id)}
-                        className={`px-4 py-2 text-sm md:text-base font-bold rounded-lg border-2 transition-all duration-300 ${activeTimerId === config.id ? 'bg-gradient-to-r from-[#5B4A9E] to-[#4A9E9E] text-white border-transparent' : 'bg-white text-[#5B4A9E] border-[#5B4A9E] hover:bg-[#5B4A9E] hover:text-white'}`}
+                        aria-pressed={activeTimerId === config.id}
+                        className={`px-4 py-2 text-sm md:text-base font-bold rounded-lg border-2 transition-all duration-300 ${focusRingClass} ${activeTimerId === config.id ? 'bg-gradient-to-r from-[#5B4A9E] to-[#3E8484] text-white border-transparent' : 'bg-white text-[#5B4A9E] border-[#5B4A9E] hover:bg-[#5B4A9E] hover:text-white'}`}
                     >
                         {translations[config.id as keyof typeof translations]}
                     </button>
@@ -382,7 +430,12 @@ const App: React.FC = () => {
                 <h2 className="text-3xl text-center font-bold text-[#5B4A9E]">{translations[activeConfig.id as keyof typeof translations]}</h2>
                 <p className="text-xl text-center font-semibold italic text-[#4A9E9E] mb-4">{teamNames[activeConfig.team]}</p>
                 
-                <div className={`text-8xl md:text-9xl text-center font-bold my-8 transition-colors duration-300 ${getTimerDisplayClass(activeTimer)}`} style={{fontVariantNumeric: 'tabular-nums'}}>
+                <div 
+                  role="timer" 
+                  aria-live="off" 
+                  className={`text-9xl md:text-[11rem] leading-none text-center font-bold my-8 transition-colors duration-300 ${getTimerDisplayClass(activeTimer)}`} 
+                  style={{fontVariantNumeric: 'tabular-nums'}}
+                >
                     {formatTime(activeTimer.seconds)}
                 </div>
 
@@ -400,30 +453,30 @@ const App: React.FC = () => {
 
                 <div className="flex flex-col md:flex-row justify-center items-center gap-4 md:gap-8 mb-8 text-[#5B4A9E]">
                     <div className="flex items-center gap-3">
-                        <label className="font-bold text-lg whitespace-nowrap">{translations.initialMinutes}</label>
-                        <input type="number" value={Math.round(activeTimer.initialSeconds / 60)} onChange={(e) => handleTimeSettingChange(activeTimerId, 'initial', parseInt(e.target.value))} min="1" max="60" className="w-20 p-2 text-center border-2 border-[#5B4A9E] rounded-md"/>
+                        <label htmlFor={`${activeTimerId}-initial-minutes`} className="font-bold text-lg whitespace-nowrap">{translations.initialMinutes}</label>
+                        <input id={`${activeTimerId}-initial-minutes`} type="number" value={Math.round(activeTimer.initialSeconds / 60)} onChange={(e) => handleTimeSettingChange(activeTimerId, 'initial', parseInt(e.target.value))} min="1" max="60" className={`w-20 p-2 text-center border-2 border-[#5B4A9E] rounded-md ${focusRingClass}`}/>
                     </div>
                      <div className="flex items-center gap-3">
-                        <label className="font-bold text-lg whitespace-nowrap">{translations.warningSeconds}</label>
-                        <input type="number" value={activeTimer.warningSeconds} onChange={(e) => handleTimeSettingChange(activeTimerId, 'warning', parseInt(e.target.value))} min="5" max="300" className="w-20 p-2 text-center border-2 border-[#5B4A9E] rounded-md"/>
+                        <label htmlFor={`${activeTimerId}-warning-seconds`} className="font-bold text-lg whitespace-nowrap">{translations.warningSeconds}</label>
+                        <input id={`${activeTimerId}-warning-seconds`} type="number" value={activeTimer.warningSeconds} onChange={(e) => handleTimeSettingChange(activeTimerId, 'warning', parseInt(e.target.value))} min="5" max="300" className={`w-20 p-2 text-center border-2 border-[#5B4A9E] rounded-md ${focusRingClass}`}/>
                     </div>
                 </div>
 
                 <div className="flex flex-wrap justify-center gap-4">
-                    <button onClick={() => handleTimerControl(activeTimerId, activeTimer.isRunning ? 'pause' : 'start')} className="w-32 px-6 py-3 bg-gradient-to-r from-[#5B4A9E] to-[#4A9E9E] text-white font-bold text-lg rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+                    <button onClick={() => handleTimerControl(activeTimerId, activeTimer.isRunning ? 'pause' : 'start')} className={`w-32 px-6 py-3 bg-gradient-to-r from-[#5B4A9E] to-[#3E8484] text-white font-bold text-lg rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 ${focusRingClass}`}>
                         {activeTimer.isRunning ? translations.pause : translations.start}
                     </button>
-                    <button onClick={() => handleTimerControl(activeTimerId, 'reset')} className="w-32 px-6 py-3 bg-gradient-to-r from-[#5B4A9E] to-[#4A9E9E] text-white font-bold text-lg rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+                    <button onClick={() => handleTimerControl(activeTimerId, 'reset')} className={`w-32 px-6 py-3 bg-gradient-to-r from-[#5B4A9E] to-[#3E8484] text-white font-bold text-lg rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 ${focusRingClass}`}>
                         {translations.reset}
                     </button>
                 </div>
             </div>
 
             <div className="flex flex-wrap justify-center gap-4 mt-8">
-                 <button onClick={exportToCSV} className="px-6 py-3 bg-[#6080A3] hover:bg-[#4d6782] text-white font-bold text-lg rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+                 <button onClick={exportToCSV} className={`px-6 py-3 bg-[#6080A3] hover:bg-[#4d6782] text-white font-bold text-lg rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 ${focusRingClass}`}>
                     {translations.export}
                 </button>
-                <button onClick={handleFinishDebate} className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold text-lg rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+                <button onClick={handleFinishDebate} className={`px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold text-lg rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 ${focusRingClass}`}>
                     {translations.finishDebate}
                 </button>
             </div>
