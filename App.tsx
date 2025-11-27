@@ -1,6 +1,9 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Language, Team, TimerState, Timers, TimerLog, TimerLogs } from './types';
 import { TRANSLATIONS, TIMER_CONFIGS } from './constants';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const formatTime = (totalSeconds: number): string => {
   const isNegative = totalSeconds < 0;
@@ -30,6 +33,18 @@ const formatSpokenTime = (totalSeconds: number, translations: typeof TRANSLATION
   
   return parts.join(` ${translations.and} `);
 };
+
+const MaximizeIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+  </svg>
+);
+
+const MinimizeIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
+  </svg>
+);
 
 
 const Header: React.FC<{
@@ -126,10 +141,45 @@ const SummaryScreen: React.FC<{
 }> = ({ timerLogs, teamNames, translations, onExport, onReset }) => {
   const focusRingClass = "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3E8484]";
   
+  const handleExportPDF = async () => {
+    const element = document.getElementById('summary-content');
+    if (!element) return;
+
+    try {
+        const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+        const imgData = canvas.toDataURL('image/png');
+        
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const imgProps = pdf.getImageProperties(imgData);
+        
+        const ratio = imgProps.width / imgProps.height;
+        let finalWidth = pdfWidth - 20; // 10mm margin each side
+        let finalHeight = finalWidth / ratio;
+        
+        // If height exceeds page, fit by height
+        if (finalHeight > (pdfHeight - 20)) {
+            finalHeight = pdfHeight - 20;
+            finalWidth = finalHeight * ratio;
+        }
+
+        const x = (pdfWidth - finalWidth) / 2;
+        const y = 10; // 10mm top margin
+
+        pdf.addImage(imgData, 'PNG', x, y, finalWidth, finalHeight);
+        pdf.save(`debate_results_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (error) {
+        console.error("Error generating PDF", error);
+        alert("Error generating PDF");
+    }
+  };
+
   const renderTeamResults = (team: Team) => {
     const teamConfigs = TIMER_CONFIGS.filter(c => c.team === team);
     const totalTimeUsed = teamConfigs.reduce((sum, config) => sum + timerLogs[config.id].timeUsed, 0);
     const totalOvertime = teamConfigs.reduce((sum, config) => sum + timerLogs[config.id].overtime, 0);
+    const totalCombined = totalTimeUsed + totalOvertime;
     const teamId = `team-summary-${team}`;
 
     return (
@@ -139,7 +189,7 @@ const SummaryScreen: React.FC<{
           {teamConfigs.map(config => {
             const log = timerLogs[config.id];
             return (
-              <div key={config.id} className="p-3 bg-white rounded-lg shadow-sm">
+              <div key={config.id} className="p-3 bg-white rounded-lg shadow-sm border border-gray-100">
                 <p className="font-bold text-lg text-gray-700">{translations[config.id as keyof typeof translations]}</p>
                 <div className="flex justify-between text-base mt-1">
                   <span className="text-gray-500">{translations.timeUsed}:</span>
@@ -162,6 +212,10 @@ const SummaryScreen: React.FC<{
                 <span>{translations.totalOvertime}:</span>
                 <span className={`font-mono ${totalOvertime > 0 ? 'text-red-500' : ''}`}>{formatTime(totalOvertime)}</span>
             </div>
+            <div className="flex justify-between font-bold text-xl mt-3 text-[#3E8484] border-t pt-2 border-gray-200">
+                <span>{translations.totalCombinedTime}:</span>
+                <span className="font-mono">{formatTime(totalCombined)}</span>
+            </div>
         </div>
       </section>
     );
@@ -170,14 +224,20 @@ const SummaryScreen: React.FC<{
   return (
     <main className="max-w-4xl mx-auto">
       <div className="bg-white p-6 md:p-8 rounded-2xl shadow-2xl">
-        <h2 className="text-4xl md:text-5xl text-center font-bold text-[#5B4A9E] mb-8">{translations.debateResults}</h2>
-        <div className="flex flex-col md:flex-row gap-6 md:gap-8 mb-8">
-          {renderTeamResults('A')}
-          {renderTeamResults('B')}
+        <div id="summary-content" className="p-4 bg-white rounded-xl">
+            <h2 className="text-4xl md:text-5xl text-center font-bold text-[#5B4A9E] mb-8">{translations.debateResults}</h2>
+            <div className="flex flex-col md:flex-row gap-6 md:gap-8 mb-8">
+            {renderTeamResults('A')}
+            {renderTeamResults('B')}
+            </div>
         </div>
-        <div className="flex flex-wrap justify-center gap-4">
+        
+        <div className="flex flex-wrap justify-center gap-4 mt-8">
           <button onClick={onExport} className={`px-8 py-4 bg-[#6080A3] hover:bg-[#4d6782] text-white font-bold text-xl rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 ${focusRingClass}`}>
             {translations.export}
+          </button>
+          <button onClick={handleExportPDF} className={`px-8 py-4 bg-[#7c7c7e] hover:bg-[#636364] text-white font-bold text-xl rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 ${focusRingClass}`}>
+            {translations.exportPDF}
           </button>
           <button onClick={onReset} className={`px-8 py-4 bg-gradient-to-r from-[#5B4A9E] to-[#3E8484] text-white font-bold text-xl rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 ${focusRingClass}`}>
             {translations.newDebate}
@@ -218,6 +278,7 @@ const App: React.FC = () => {
   const [debateFinished, setDebateFinished] = useState(false);
   const [teamNames, setTeamNames] = useState<{ A: string; B: string }>({ A: '', B: '' });
   const [activeTimerId, setActiveTimerId] = useState<string>(TIMER_CONFIGS[0].id);
+  const [isFullScreen, setIsFullScreen] = useState(false);
   
   const [timers, setTimers] = useState<Timers>(initialTimersState);
   const [timerLogs, setTimerLogs] = useState<TimerLogs>(initialTimerLogsState);
@@ -250,6 +311,7 @@ const App: React.FC = () => {
     setActiveTimerId(TIMER_CONFIGS[0].id);
     setTimers(initialTimersState);
     setTimerLogs(initialTimerLogsState);
+    setIsFullScreen(false);
   };
 
   const updateTimerAndLog = useCallback((timerId: string, newSeconds: number) => {
@@ -309,6 +371,14 @@ const App: React.FC = () => {
 
     return () => clearInterval(interval);
   }, [isAnyTimerRunning, timers, updateTimerAndLog]);
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsFullScreen(false);
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, []);
   
   const handleTimerControl = useCallback((id: string, action: 'start' | 'pause' | 'reset') => {
     setTimers(prev => {
@@ -350,7 +420,7 @@ const App: React.FC = () => {
   const exportToCSV = useCallback(() => {
     const now = new Date();
     const timestamp = now.toLocaleString(lang);
-    let csv = `Fase,Equipo/Participante,Tiempo Inicial (seg),Tiempo Usado (seg),Tiempo Extra (seg),${translations.completed}\n`;
+    let csv = `Fase,Equipo/participante,Tiempo inicial (seg),Tiempo usado (seg),Tiempo extra (seg),${translations.completed}\n`;
 
     TIMER_CONFIGS.forEach(config => {
       const log = timerLogs[config.id];
@@ -367,7 +437,7 @@ const App: React.FC = () => {
         const teamTimers = TIMER_CONFIGS.filter(c => c.team === team);
         const totalTime = teamTimers.reduce((sum, config) => sum + timerLogs[config.id].timeUsed, 0);
         const totalOvertime = teamTimers.reduce((sum, config) => sum + timerLogs[config.id].overtime, 0);
-        csv += `"TOTAL ${teamName}","${teamName}",,${totalTime},${totalOvertime},\n`;
+        csv += `"Total ${teamName}","${teamName}",,${totalTime},${totalOvertime},\n`;
     });
 
     csv += `\n"Fecha/Hora","${timestamp}"\n`;
@@ -393,9 +463,9 @@ const App: React.FC = () => {
   };
 
   const getProgressBarClass = (timer: TimerState) => {
-    if (timer.seconds <= 0) return 'bg-red-500';
-    if (timer.seconds <= timer.warningSeconds) return 'bg-yellow-500';
-    return 'bg-green-500';
+    if (timer.seconds <= 0) return 'bg-gradient-to-r from-red-600 to-red-400 shadow-[0_0_15px_rgba(220,38,38,0.6)]';
+    if (timer.seconds <= timer.warningSeconds) return 'bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_15px_rgba(245,158,11,0.6)]';
+    return 'bg-gradient-to-r from-emerald-600 to-teal-400 shadow-[0_0_15px_rgba(16,185,129,0.6)]';
   };
 
   const progressPercentage = useMemo(() => {
@@ -426,49 +496,68 @@ const App: React.FC = () => {
                 ))}
             </div>
 
-            <div className="bg-white p-6 md:p-8 rounded-2xl shadow-2xl">
-                <h2 className="text-3xl text-center font-bold text-[#5B4A9E]">{translations[activeConfig.id as keyof typeof translations]}</h2>
-                <p className="text-xl text-center font-semibold italic text-[#4A9E9E] mb-4">{teamNames[activeConfig.team]}</p>
-                
-                <div 
-                  role="timer" 
-                  aria-live="off" 
-                  className={`text-9xl md:text-[11rem] leading-none text-center font-bold my-8 transition-colors duration-300 ${getTimerDisplayClass(activeTimer)}`} 
-                  style={{fontVariantNumeric: 'tabular-nums'}}
+            <div className={`bg-white transition-all duration-300 ${isFullScreen ? 'fixed inset-0 z-50 h-screen w-screen flex flex-col justify-between p-4 md:p-12 overflow-y-auto' : 'p-6 md:p-8 rounded-2xl shadow-2xl relative'}`}>
+                <button 
+                   onClick={() => setIsFullScreen(!isFullScreen)}
+                   className="absolute top-4 right-4 p-2 text-[#5B4A9E] hover:bg-gray-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#3E8484]"
+                   title={isFullScreen ? translations.exitFullScreen : translations.fullScreen}
+                   aria-label={isFullScreen ? translations.exitFullScreen : translations.fullScreen}
                 >
-                    {formatTime(activeTimer.seconds)}
+                   {isFullScreen ? <MinimizeIcon /> : <MaximizeIcon />}
+                </button>
+
+                <div className={`${isFullScreen ? 'flex-1 flex flex-col justify-center' : ''}`}>
+                  <h2 className={`font-bold text-[#5B4A9E] text-center transition-all duration-300 ${isFullScreen ? 'text-4xl md:text-6xl mb-4' : 'text-3xl'}`}>
+                    {translations[activeConfig.id as keyof typeof translations]}
+                  </h2>
+                  <p className={`font-semibold italic text-[#4A9E9E] text-center mb-4 transition-all duration-300 ${isFullScreen ? 'text-3xl md:text-5xl' : 'text-xl'}`}>
+                    {teamNames[activeConfig.team]}
+                  </p>
+                  
+                  <div 
+                    role="timer" 
+                    aria-live="off" 
+                    className={`leading-none text-center font-bold my-4 transition-all duration-300 ${getTimerDisplayClass(activeTimer)} ${isFullScreen ? 'text-[25vw] md:text-[30vh]' : 'text-9xl md:text-[11rem] my-8'}`} 
+                    style={{fontVariantNumeric: 'tabular-nums'}}
+                  >
+                      {formatTime(activeTimer.seconds)}
+                  </div>
+
+                  <div className={`w-full bg-gray-100 rounded-full p-1.5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.1)] transition-all duration-300 ${isFullScreen ? 'h-12 md:h-16 mb-12 max-w-[80vw] mx-auto' : 'h-8 mb-8'}`}>
+                      <div
+                          className={`h-full rounded-full transition-all duration-1000 ease-linear relative overflow-hidden ${getProgressBarClass(activeTimer)}`}
+                          style={{ width: `${progressPercentage}%` }}
+                          role="progressbar"
+                          aria-valuenow={activeTimer.seconds}
+                          aria-valuemin={0}
+                          aria-valuemax={activeTimer.initialSeconds}
+                          aria-label="Time remaining"
+                      >
+                         <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-white/30 to-transparent"></div>
+                      </div>
+                  </div>
                 </div>
 
-                <div className="w-full bg-gray-200 rounded-full h-6 mb-8 overflow-hidden shadow-inner">
-                    <div
-                        className={`h-6 rounded-full transition-all duration-300 ease-linear ${getProgressBarClass(activeTimer)}`}
-                        style={{ width: `${progressPercentage}%` }}
-                        role="progressbar"
-                        aria-valuenow={activeTimer.seconds}
-                        aria-valuemin={0}
-                        aria-valuemax={activeTimer.initialSeconds}
-                        aria-label="Time remaining"
-                    ></div>
-                </div>
-
-                <div className="flex flex-col md:flex-row justify-center items-center gap-4 md:gap-8 mb-8 text-[#5B4A9E]">
-                    <div className="flex items-center gap-3">
-                        <label htmlFor={`${activeTimerId}-initial-minutes`} className="font-bold text-lg whitespace-nowrap">{translations.initialMinutes}</label>
-                        <input id={`${activeTimerId}-initial-minutes`} type="number" value={Math.round(activeTimer.initialSeconds / 60)} onChange={(e) => handleTimeSettingChange(activeTimerId, 'initial', parseInt(e.target.value))} min="1" max="60" className={`w-20 p-2 text-center border-2 border-[#5B4A9E] rounded-md ${focusRingClass}`}/>
+                <div className={`flex flex-col items-center gap-4 ${isFullScreen ? 'mb-8 scale-110' : 'mb-8'}`}>
+                    <div className="flex flex-col md:flex-row justify-center items-center gap-4 md:gap-8 text-[#5B4A9E]">
+                        <div className="flex items-center gap-3">
+                            <label htmlFor={`${activeTimerId}-initial-minutes`} className="font-bold text-lg whitespace-nowrap">{translations.initialMinutes}</label>
+                            <input id={`${activeTimerId}-initial-minutes`} type="number" value={Math.round(activeTimer.initialSeconds / 60)} onChange={(e) => handleTimeSettingChange(activeTimerId, 'initial', parseInt(e.target.value))} min="1" max="60" className={`w-20 p-2 text-center border-2 border-[#5B4A9E] rounded-md ${focusRingClass}`}/>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <label htmlFor={`${activeTimerId}-warning-seconds`} className="font-bold text-lg whitespace-nowrap">{translations.warningSeconds}</label>
+                            <input id={`${activeTimerId}-warning-seconds`} type="number" value={activeTimer.warningSeconds} onChange={(e) => handleTimeSettingChange(activeTimerId, 'warning', parseInt(e.target.value))} min="5" max="300" className={`w-20 p-2 text-center border-2 border-[#5B4A9E] rounded-md ${focusRingClass}`}/>
+                        </div>
                     </div>
-                     <div className="flex items-center gap-3">
-                        <label htmlFor={`${activeTimerId}-warning-seconds`} className="font-bold text-lg whitespace-nowrap">{translations.warningSeconds}</label>
-                        <input id={`${activeTimerId}-warning-seconds`} type="number" value={activeTimer.warningSeconds} onChange={(e) => handleTimeSettingChange(activeTimerId, 'warning', parseInt(e.target.value))} min="5" max="300" className={`w-20 p-2 text-center border-2 border-[#5B4A9E] rounded-md ${focusRingClass}`}/>
-                    </div>
-                </div>
 
-                <div className="flex flex-wrap justify-center gap-4">
-                    <button onClick={() => handleTimerControl(activeTimerId, activeTimer.isRunning ? 'pause' : 'start')} className={`w-32 px-6 py-3 bg-gradient-to-r from-[#5B4A9E] to-[#3E8484] text-white font-bold text-lg rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 ${focusRingClass}`}>
-                        {activeTimer.isRunning ? translations.pause : translations.start}
-                    </button>
-                    <button onClick={() => handleTimerControl(activeTimerId, 'reset')} className={`w-32 px-6 py-3 bg-gradient-to-r from-[#5B4A9E] to-[#3E8484] text-white font-bold text-lg rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 ${focusRingClass}`}>
-                        {translations.reset}
-                    </button>
+                    <div className="flex flex-wrap justify-center gap-4 mt-4">
+                        <button onClick={() => handleTimerControl(activeTimerId, activeTimer.isRunning ? 'pause' : 'start')} className={`w-32 px-6 py-3 bg-gradient-to-r from-[#5B4A9E] to-[#3E8484] text-white font-bold text-lg rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 ${focusRingClass}`}>
+                            {activeTimer.isRunning ? translations.pause : translations.start}
+                        </button>
+                        <button onClick={() => handleTimerControl(activeTimerId, 'reset')} className={`w-32 px-6 py-3 bg-gradient-to-r from-[#5B4A9E] to-[#3E8484] text-white font-bold text-lg rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 ${focusRingClass}`}>
+                            {translations.reset}
+                        </button>
+                    </div>
                 </div>
             </div>
 
